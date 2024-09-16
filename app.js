@@ -3,16 +3,26 @@ const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
+const fs = require("fs"); //fs -> file system. Oricare limbaj backend poate avea acces la fisierele din sistem
+const bcrypt = require("bcryptjs/dist/bcrypt");
 
 const app = express();
-
-// view engine setup
-app.set("view engine", "jade");
 
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+// view engine setup
+app.set("view engine", "jade");
+
+app.use("/uploads", express.static("uploads")); // Impartirea fisierelor statice din uploads
+
+app.use("/api", require("./routes")); //Toate routurile vor fi setate pe api, dupa care vor fi transmise spre routes(mapa)
+
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -31,3 +41,10 @@ app.use(function (err, req, res, next) {
 });
 
 module.exports = app;
+
+app.listen(4444, (err) => {
+  if (err) {
+    return console.log("err");
+  }
+  console.log("Server ok");
+});
