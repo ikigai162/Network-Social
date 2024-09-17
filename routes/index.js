@@ -15,14 +15,14 @@ const storage = multer.diskStorage({
 
 const uploads = multer({ storage: storage }); // Prin const uploads utilizand multer a fost creata un depozit careia ia fost transmisa configuratia const storage
 
-router.post("/register", userController.register);
+router.post("/register", userController.register); 
 /* (req, res) => {
   // Cand este accesata route va fi indeplinita functia. req -> vine de la user, res -> raspunsul nostru
   res.send("Register"); // Am avut eroare deoarece n-am pus " "
 } */
 router.post("/login", userController.login);
 router.get("/current", authenticateToken, userController.current);
-router.post("/users/:id", userController.login);
-router.put("/users/:id", userController.updateUser);
+router.get("/users/:id", authenticateToken, userController.getUserById);
+router.put("/users/:id", authenticateToken, uploads.single('avatar'), userController.updateUser);
 
 module.exports = router;

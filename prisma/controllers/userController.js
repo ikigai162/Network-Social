@@ -6,6 +6,7 @@ const Jdenticon = require("jdenticon");
 const path = require("path");
 const fs = require("fs");
 const jwt = require("jsonwebtoken");
+const { error } = require("console");
 
 const userController = {
   register: async (req, res) => {
@@ -86,13 +87,122 @@ const userController = {
     }
   },
   getUserById: async (req, res) => {
-    res.send("GetUserById");
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    try {
+      const user = await prisma.user.findUnique({
+        //Cautam utilizatorul dupa id
+        where: { id },
+        include: {
+          //Daca utilizatorul exista va returna si urmatoarele date
+          followers: true,
+          following: true,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({ erorr: "Utilizatorul nu a fost gasit" });
+      }
+
+      // Проверяем, подписан ли текущий пользователь на пользователя
+      const isFollowing = await prisma.follows.findFirst({
+        where: {
+          AND: [{ followerId: userId }, { followingId: id }],
+        },
+      });
+      res.json({ ...user, isFollowing: Boolean(isFollowing) });
+    } catch (err) {
+      console.warn("Get current error.");
+
+      res.status(500).json({ error: "Internal server error" });
+    }
   },
   updateUser: async (req, res) => {
-    res.send("UpdateUser");
+    const { id } = req.params;
+    const { email, name, dateOfBirth, bio, location } = req.body;
+
+    let filePath;
+
+    //Vom incerca sa aflam daca exista fisierul, daca am primit fisierul, etc.
+    if (req.file && req.filePath) {
+      filePath = req.file.path;
+    }
+
+    //verificam daca utilizatorul modifica informatia
+    if (id !== req.user.userId) {
+      //Eroare deoarece n-am luat userId ci doar id
+      return res.status(403).json({ error: "Nu aveti acces" });
+    }
+
+    try {
+      if (email) {
+        //Daca isi schimba email-ul
+        const existingEmail = await prisma.user.findFirst({
+          //findUnique lucreaza doar cu id-uri
+          where: {
+            email: email,
+          },
+        });
+        if (existingUser && existingUser.id !== id) {
+          //Daca id-ul utilizatoruli curent este diferit
+          return res.status(400).json({
+            erorr: "Emailul deja este utilizat.",
+          });
+        }
+      }
+
+      const user = await prisma.user.update({
+        where: { id },
+        data: {
+          email: email || undefined, //Daca n-am primit un email atunci ramande undefined(nu se schimba nimic)
+          name: name || undefined,
+          avatarUrl: filePath ? `/${filePath}` : undefined,
+          dateOfBirth: dateOfBirth || undefined,
+          bio: bio || undefined,
+          location: location || undefined,
+        },
+      });
+
+      res.json(user);
+    } catch (err) {
+      console.error("Update user error.", error);
+      res.status(500).json({
+        error: "Internal server error.",
+      });
+    }
   },
   current: async (req, res) => {
-    res.send("Current");
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: req.user.userId,
+        },
+        include: {
+          followers: {
+            include: {
+              follower: true,
+            },
+          },
+          following: {
+            include: {
+              following: true,
+            },
+          },
+        },
+      });
+      if (!user) {
+        return res.status(400).json({
+          error: "Utilizatorul nu a fost gasit.",
+        });
+      }
+      res.json(user);
+    } catch (err) {
+      console.error("Get Current Error", error);
+      res.status(500).json({
+        error: "Internal serveer error.",
+      });
+    }
   },
 };
 
